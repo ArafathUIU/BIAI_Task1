@@ -124,6 +124,23 @@ def parse_extraction(payload: str | dict[str, Any]) -> tuple[QuotationExtraction
     return extraction, issues
 
 
+def _recover_totals(extraction: QuotationExtraction) -> QuotationExtraction:
+    """Fill missing subtotal/total from line_amount when the document omits labels."""
+    if extraction.subtotal.value is None and extraction.line_amount.value is not None:
+        extraction.subtotal = FieldExtraction(
+            value=extraction.line_amount.value,
+            evidence=extraction.line_amount.evidence,
+            confidence=0.7,
+        )
+    if extraction.total.value is None and extraction.line_amount.value is not None:
+        extraction.total = FieldExtraction(
+            value=extraction.line_amount.value,
+            evidence=extraction.line_amount.evidence,
+            confidence=0.7,
+        )
+    return extraction
+
+
 def _recover_item_code(extraction: QuotationExtraction, raw_text: str) -> QuotationExtraction:
     """Fill a missing item_code using a deterministic, evidence-backed parse."""
     if extraction.item_code.value is not None:
@@ -173,7 +190,8 @@ def extract_quotation(state: GraphState) -> GraphState:
         state.extraction_issues.extend(issues)
         return state
 
-    # Deterministic recovery for a field the model occasionally omits.
+    # Deterministic recovery for fields the model occasionally omits.
+    extraction = _recover_totals(extraction)
     extraction = _recover_item_code(extraction, state.raw_text)
 
     state.extraction = extraction
