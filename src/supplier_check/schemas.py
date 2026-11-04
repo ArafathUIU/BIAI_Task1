@@ -74,6 +74,7 @@ class GraphState(BaseModel):
 
     doc_id: str
     file_name: str | None = None
+    file_path: str | None = None
     raw_text: str = ""
     text_hash: str = ""
     ingestion_ok: bool = False
