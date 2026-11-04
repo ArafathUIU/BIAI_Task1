@@ -3,6 +3,7 @@ import json
 from supplier_check.extract import (
     build_messages,
     extract_quotation,
+    get_client_and_model,
     parse_extraction,
 )
 from supplier_check.ingest import ingest_pdf
@@ -73,3 +74,47 @@ def test_extract_quotation_node_ingestion_failure() -> None:
     state = GraphState(doc_id="x", ingestion_ok=False, raw_text="")
     result = extract_quotation(state)
     assert result.extraction_status == "needs_human"
+
+
+class _FakeOpenAI:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+
+def test_get_client_prefers_base_url(monkeypatch) -> None:
+    monkeypatch.setattr("supplier_check.extract.LLM_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setattr("supplier_check.extract.LLM_API_KEY", None)
+    monkeypatch.setattr("supplier_check.extract.OPENAI_API_KEY", None)
+    monkeypatch.setattr("supplier_check.extract.GROQ_API_KEY", "gkey")
+    monkeypatch.setattr("supplier_check.extract.LLM_MODEL", "qwen2.5:7b-instruct")
+    monkeypatch.setattr("supplier_check.extract.OpenAI", _FakeOpenAI)
+    client, model = get_client_and_model()
+    assert model == "qwen2.5:7b-instruct"
+    assert client.kwargs["base_url"] == "http://localhost:11434/v1"
+    assert client.kwargs["api_key"] == "ollama"
+
+
+def test_get_client_prefers_groq_over_openai(monkeypatch) -> None:
+    monkeypatch.setattr("supplier_check.extract.LLM_BASE_URL", None)
+    monkeypatch.setattr("supplier_check.extract.GROQ_API_KEY", "gkey")
+    monkeypatch.setattr("supplier_check.extract.GROQ_MODEL", "llama-3.3-70b-versatile")
+    monkeypatch.setattr("supplier_check.extract.OPENAI_API_KEY", "okey")
+    monkeypatch.setattr("supplier_check.extract.LLM_MODEL", "gpt-4o-mini")
+    monkeypatch.setattr("supplier_check.extract.OpenAI", _FakeOpenAI)
+    client, model = get_client_and_model()
+    assert model == "llama-3.3-70b-versatile"
+    assert client.kwargs["api_key"] == "gkey"
+    assert client.kwargs["base_url"] == "https://api.groq.com/openai/v1"
+
+
+def test_get_client_uses_openai_when_only_openai(monkeypatch) -> None:
+    monkeypatch.setattr("supplier_check.extract.LLM_BASE_URL", None)
+    monkeypatch.setattr("supplier_check.extract.GROQ_API_KEY", None)
+    monkeypatch.setattr("supplier_check.extract.OPENAI_API_KEY", "okey")
+    monkeypatch.setattr("supplier_check.extract.LLM_MODEL", "gpt-4o-mini")
+    monkeypatch.setattr("supplier_check.extract.OpenAI", _FakeOpenAI)
+    client, model = get_client_and_model()
+    assert model == "gpt-4o-mini"
+    assert client.kwargs["api_key"] == "okey"
+    assert "base_url" not in client.kwargs
+

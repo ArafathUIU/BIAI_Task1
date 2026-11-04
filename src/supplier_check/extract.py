@@ -43,19 +43,25 @@ def build_messages(raw_text: str) -> list[dict[str, str]]:
 
 
 def get_client_and_model() -> tuple[OpenAI, str]:
-    """Resolve an OpenAI-compatible client + model from configuration."""
+    """Resolve an OpenAI-compatible client + model from configuration.
+
+    Precedence (first match wins):
+    1. ``LLM_BASE_URL`` — Ollama / custom endpoint (model = ``LLM_MODEL``)
+    2. ``GROQ_API_KEY`` — Groq (model = ``GROQ_MODEL``)
+    3. ``OPENAI_API_KEY`` — OpenAI (model = ``LLM_MODEL``)
+    """
     if LLM_BASE_URL:
         api_key = LLM_API_KEY or OPENAI_API_KEY or "ollama"
         return OpenAI(base_url=LLM_BASE_URL, api_key=api_key), LLM_MODEL
     if GROQ_API_KEY:
-        model = LLM_MODEL if LLM_MODEL and LLM_MODEL != "gpt-4o-mini" else GROQ_MODEL
-        return OpenAI(base_url=GROQ_BASE_URL, api_key=GROQ_API_KEY), model
+        return OpenAI(base_url=GROQ_BASE_URL, api_key=GROQ_API_KEY), GROQ_MODEL
     if not OPENAI_API_KEY:
         raise RuntimeError(
             "No LLM credentials configured. Set OPENAI_API_KEY, GROQ_API_KEY, "
-            "or LLM_BASE_URL/LLM_API_KEY."
+            "or LLM_BASE_URL (+ optional LLM_API_KEY)."
         )
     return OpenAI(api_key=OPENAI_API_KEY), LLM_MODEL
+
 
 
 def call_llm(messages: list[dict[str, str]], *, client: OpenAI | None = None, model: str | None = None) -> str:

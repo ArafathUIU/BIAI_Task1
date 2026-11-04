@@ -69,7 +69,7 @@ supplier-doc-check/
    pass. If a label seems wrong, update `PLAN.md` section 3 and section 7 together
    and explain in the PR.
 7. **Secrets.** Read API keys from env only. Never commit `.env`. `.env.example`
-   must contain placeholders only, and must document **both** OpenAI and Ollama.
+   must contain placeholders only, and must document OpenAI, Groq, and Ollama.
 8. **Respect the MVP cut line** in `PLAN.md` §4.1. Do not build live HITL
    interrupt, SQLite, LangSmith, Docker, or OCR before golden labels + Streamlit
    batch/detail UI are done.
@@ -79,17 +79,17 @@ supplier-doc-check/
 
 ```bash
 cd supplier-doc-check
-cp .env.example .env        # OpenAI key OR Ollama base URL
+cp .env.example .env        # fill ONE of: OPENAI_API_KEY / GROQ_API_KEY / LLM_BASE_URL
 uv sync
-uv run pytest               # all tests
+uv run python -m pytest     # all tests
 uv run streamlit run src/supplier_check/ui.py
 uv run python -m supplier_check.graph --input data/ --out runs/
 ```
 
-Required env vars (`.env.example`):
-- `OPENAI_API_KEY=` (leave empty if using Ollama)
-- `LLM_BASE_URL=` (e.g. `http://localhost:11434/v1` for Ollama; empty for OpenAI)
-- `LLM_MODEL=gpt-4o-mini` (or an Ollama tag such as `qwen2.5:7b-instruct`)
+Required env vars (`.env.example`) — precedence: `LLM_BASE_URL` → `GROQ_API_KEY` → `OPENAI_API_KEY`:
+- `OPENAI_API_KEY=` + `LLM_MODEL=gpt-4o-mini`
+- `GROQ_API_KEY=` + `GROQ_MODEL=llama-3.3-70b-versatile`
+- `LLM_BASE_URL=` (e.g. `http://localhost:11434/v1`) + `LLM_MODEL=` + optional `LLM_API_KEY=`
 - `LLM_TEMPERATURE=0`
 - `CONFIDENCE_THRESHOLD=0.80` (soft secondary gate only)
 - `LANGSMITH_API_KEY=` (optional; skip for MVP)

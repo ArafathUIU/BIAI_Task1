@@ -7,9 +7,19 @@ check** with exact supporting quotes.
 ## Setup
 
 ```bash
-cp .env.example .env   # add OPENAI_API_KEY, or set LLM_BASE_URL for Ollama
+cp .env.example .env
 uv sync
 ```
+
+Fill **one** provider in `.env` (never commit `.env`; it is gitignored):
+
+| Provider | Set these |
+|---|---|
+| OpenAI | `OPENAI_API_KEY` (+ optional `LLM_MODEL`, default `gpt-4o-mini`) |
+| Groq | `GROQ_API_KEY` (+ optional `GROQ_MODEL`, default `llama-3.3-70b-versatile`) |
+| Ollama / custom | `LLM_BASE_URL` (e.g. `http://localhost:11434/v1`) + `LLM_MODEL` |
+
+Precedence if more than one is set: `LLM_BASE_URL` → `GROQ_API_KEY` → `OPENAI_API_KEY`.
 
 ## Run tests
 
