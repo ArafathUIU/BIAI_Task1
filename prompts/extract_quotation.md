@@ -14,7 +14,9 @@ markdown, commentary, or any text outside the JSON.
 4. `confidence` is a 0.0-1.0 estimate of how clearly the value is stated. It is a
    weak signal only; evidence and arithmetic are checked separately.
 5. Numbers: use plain JSON numbers (no thousands separators, no currency symbols).
-6. `item_code` must be one of A, B, C, D, E as printed in the quotation.
+6. `item_code` must be one of A, B, C, D, E as printed in the quotation. It is the
+   single letter in the "Item" column of the quotation table (often on its own line).
+   Do not confuse it with the description.
 7. `delivery_days`: integer number of days. Convert "N weeks" to N*7. If the
    document says "4 weeks", output 28.
 8. `late_penalty_clause_present`: true only if a late-delivery penalty clause exists.
