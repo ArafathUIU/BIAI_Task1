@@ -7,7 +7,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .config import LLM_MODEL
+from .config import GROQ_MODEL, LLM_MODEL
 from .schemas import GraphState
 
 PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "extract_quotation.md"
@@ -18,6 +18,19 @@ def _prompt_version() -> str:
         return hashlib.sha256(PROMPT_PATH.read_bytes()).hexdigest()[:12]
     except OSError:
         return "unknown"
+
+
+def _resolved_model(state: GraphState) -> str:
+    """Prefer the model actually used during extraction; never assume OpenAI default."""
+    if state.llm_model:
+        return state.llm_model
+    try:
+        from .extract import get_client_and_model
+
+        _, model = get_client_and_model()
+        return model
+    except Exception:  # noqa: BLE001 - audit must not crash the batch
+        return LLM_MODEL or GROQ_MODEL or "unknown"
 
 
 def _record(state: GraphState) -> dict:
@@ -37,7 +50,7 @@ def _record(state: GraphState) -> dict:
         "price_over_max_pct": state.price_over_max_pct,
         "rule_hits": rule_hits,
         "human_review_required": state.human_review_required,
-        "model": LLM_MODEL,
+        "model": _resolved_model(state),
         "prompt_version": _prompt_version(),
         "timestamp": datetime.now(UTC).isoformat(),
     }

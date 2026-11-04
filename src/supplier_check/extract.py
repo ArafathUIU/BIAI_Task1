@@ -188,6 +188,12 @@ def extract_quotation(state: GraphState) -> GraphState:
     last_exc: Exception | None = None
     last_content: str | None = None
 
+    try:
+        _, resolved_model = get_client_and_model()
+        state.llm_model = resolved_model
+    except Exception:  # noqa: BLE001 - record best-effort; call_llm will surface auth errors
+        state.llm_model = state.llm_model or LLM_MODEL or GROQ_MODEL
+
     for attempt in range(3):
         try:
             content = call_llm(messages)

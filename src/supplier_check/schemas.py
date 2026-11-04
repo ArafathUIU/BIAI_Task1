@@ -96,3 +96,6 @@ class GraphState(BaseModel):
     evidence: list[str] = Field(default_factory=list)
     human_review_required: bool = False
     human_decision: str | None = None
+    # Resolved provider model id used for extraction (OpenAI / Groq / Ollama).
+    llm_model: str | None = None
+

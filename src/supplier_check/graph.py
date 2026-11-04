@@ -78,9 +78,21 @@ def run_batch(input_dir: Path, out_dir: Path) -> Path:
     run_dir.mkdir(parents=True, exist_ok=True)
 
     for pdf in sorted(input_dir.glob("supplier-pack-*.pdf")):
-        state = GraphState(doc_id=pdf.stem, file_path=str(pdf))
-        final = graph.invoke(state.model_dump())
-        final_state = GraphState.model_validate(final)
+        try:
+            state = GraphState(doc_id=pdf.stem, file_path=str(pdf))
+            final = graph.invoke(state.model_dump())
+            final_state = GraphState.model_validate(final)
+        except Exception as exc:  # noqa: BLE001 - one bad doc must not abort the batch
+            final_state = GraphState(
+                doc_id=pdf.stem,
+                file_name=pdf.name,
+                file_path=str(pdf),
+                decision="Needs a person to check",
+                reasons=[f"Pipeline error while processing document: {exc}"],
+                human_review_required=True,
+                extraction_status="needs_human",
+                extraction_issues=[str(exc)],
+            )
         write_audit(run_dir, final_state)
         print(f"{final_state.doc_id}: {final_state.decision}")
 

@@ -26,9 +26,8 @@ def test_decide_pr_mismatch_is_needs() -> None:
     assert any("purchase-request" in r for r in state.reasons)
 
 
-def test_decide_approve_path() -> None:
-    # Reuse a verified extraction by mocking is complex; check precedence only:
-    # if extraction_status ok and pr_match_ok but no extraction, still needs.
+def test_decide_ok_status_without_extraction_is_needs() -> None:
+    # extraction_status ok and pr_match_ok but no extraction -> still Needs.
     state = GraphState(doc_id="x", ingestion_ok=True, raw_text="x")
     state.extraction_status = "ok"
     state.pr_match_ok = True
