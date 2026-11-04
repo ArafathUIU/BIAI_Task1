@@ -1,0 +1,5 @@
+"""Purchase-request loading/comparison helpers (Phase 5)."""
+
+from __future__ import annotations
+
+__all__: list[str] = []
