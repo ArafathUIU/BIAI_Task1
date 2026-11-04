@@ -1,1 +1,100 @@
-{}
+{
+  "task": "Task 1 - supplier document checker",
+  "purchase_request": "PR-2026-114",
+  "decisions": {
+    "supplier-pack-01": "Approve",
+    "supplier-pack-02": "Approve",
+    "supplier-pack-03": "Reject",
+    "supplier-pack-04": "Needs a person to check",
+    "supplier-pack-05": "Reject",
+    "supplier-pack-06": "Reject",
+    "supplier-pack-07": "Needs a person to check",
+    "supplier-pack-08": "Reject",
+    "supplier-pack-09": "Needs a person to check",
+    "supplier-pack-10": "Reject"
+  },
+  "primary_reasons": {
+    "supplier-pack-01": "All rules pass",
+    "supplier-pack-02": "All rules pass",
+    "supplier-pack-03": "Unit price 9.05% above maximum (>3%)",
+    "supplier-pack-04": "Unit price 2.31% above maximum (<=3%)",
+    "supplier-pack-05": "Advance payment 40% (>20%)",
+    "supplier-pack-06": "No late-delivery penalty clause",
+    "supplier-pack-07": "Quantity 17.5% below requested (>5%)",
+    "supplier-pack-08": "TIN/BIN missing",
+    "supplier-pack-09": "Payment terms unclear (30-90 days) and line total mismatch",
+    "supplier-pack-10": "Delivery 60 days (>45); VAT not shown separately"
+  },
+  "packs": [
+    {
+      "pack": "supplier-pack-01.pdf",
+      "item": "A",
+      "supplier": "Padma Textile Mills Ltd",
+      "decision": "Approve",
+      "primary_reason": "All rules pass"
+    },
+    {
+      "pack": "supplier-pack-02.pdf",
+      "item": "B",
+      "supplier": "Jamuna Trims and Accessories",
+      "decision": "Approve",
+      "primary_reason": "All rules pass"
+    },
+    {
+      "pack": "supplier-pack-03.pdf",
+      "item": "C",
+      "supplier": "Karnaphuli Yarn Traders",
+      "decision": "Reject",
+      "primary_reason": "Unit price 9.05% above maximum (>3%)"
+    },
+    {
+      "pack": "supplier-pack-04.pdf",
+      "item": "D",
+      "supplier": "Surma Packaging Industries",
+      "decision": "Needs a person to check",
+      "primary_reason": "Unit price 2.31% above maximum (<=3%)"
+    },
+    {
+      "pack": "supplier-pack-05.pdf",
+      "item": "E",
+      "supplier": "Meghna Carton Works",
+      "decision": "Reject",
+      "primary_reason": "Advance payment 40% (>20%)"
+    },
+    {
+      "pack": "supplier-pack-06.pdf",
+      "item": "A",
+      "supplier": "Teesta Fabrics Ltd",
+      "decision": "Reject",
+      "primary_reason": "No late-delivery penalty clause"
+    },
+    {
+      "pack": "supplier-pack-07.pdf",
+      "item": "B",
+      "supplier": "Rupsha Zipper Factory",
+      "decision": "Needs a person to check",
+      "primary_reason": "Quantity 17.5% below requested (>5%)"
+    },
+    {
+      "pack": "supplier-pack-08.pdf",
+      "item": "C",
+      "supplier": "Bhairab Thread and Co",
+      "decision": "Reject",
+      "primary_reason": "TIN/BIN missing"
+    },
+    {
+      "pack": "supplier-pack-09.pdf",
+      "item": "D",
+      "supplier": "Dhaleshwari Poly Pack",
+      "decision": "Needs a person to check",
+      "primary_reason": "Payment terms unclear (30-90 days) and line total mismatch"
+    },
+    {
+      "pack": "supplier-pack-10.pdf",
+      "item": "E",
+      "supplier": "Kushiyara Box Industries",
+      "decision": "Reject",
+      "primary_reason": "Delivery 60 days (>45); VAT not shown separately"
+    }
+  ]
+}

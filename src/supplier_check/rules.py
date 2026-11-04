@@ -31,10 +31,6 @@ def _ev(extraction: Any, name: str) -> str | None:
     return f.evidence if isinstance(f.evidence, str) and f.evidence.strip() else None
 
 
-def price_over_max_pct(extraction: Any) -> float | None:
-    return None  # placeholder, computed with PR in apply_rules
-
-
 def _payment_days(extraction: Any) -> int | None:
     v = _field(extraction, "balance_payment_days").value
     if isinstance(v, bool):
@@ -136,14 +132,7 @@ def apply_rules(extraction: Any, pr_row: dict[str, Any], price_over_max: float |
             _ev(extraction, "delivery_days"),
         )
 
-    if reject_reasons:
-        result.decision = "Reject"
-        result.reasons = reject_reasons
-        result.evidence = reject_evidence
-        result.rule_hits = reject_hits
-        return result
-
-    # --- Needs rules ---
+    # --- Needs rules (evaluated even on Reject, so audit can record extra hits) ---
     if price_over_max is not None and 0 < price_over_max <= 3.0:
         needs(
             "Unit price is above the maximum, but by no more than 3%.",
@@ -206,6 +195,13 @@ def apply_rules(extraction: Any, pr_row: dict[str, Any], price_over_max: float |
             "needs_penalty_under_0_5pct",
             _ev(extraction, "late_penalty_pct_per_week"),
         )
+
+    if reject_reasons:
+        result.decision = "Reject"
+        result.reasons = reject_reasons
+        result.evidence = reject_evidence
+        result.rule_hits = reject_hits + [h for h in needs_hits if h not in reject_hits]
+        return result
 
     if needs_reasons:
         result.decision = "Needs a person to check"
