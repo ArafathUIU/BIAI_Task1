@@ -121,12 +121,13 @@ def test_pack_01_verifies_ok(mock_llm) -> None:
     assert state.extraction_status == "ok"
 
 
-def test_pack_09_arithmetic_mismatch_is_needs_human(mock_llm) -> None:
+def test_pack_09_arithmetic_mismatch_noted_but_verify_can_pass(mock_llm) -> None:
     mock_llm(_payload(PACK09_FIELDS))
     state = ingest_pdf(DATA_DIR / "supplier-pack-09.pdf")
     state = extract_quotation(state)
     state = verify_extraction(state)
-    assert state.extraction_status == "needs_human"
+    # Math errors are left for the rule engine (Needs), not extract failure.
+    assert state.extraction_status == "ok"
     assert any("Numbers do not add up" in i for i in state.extraction_issues)
 
 
@@ -147,6 +148,35 @@ def test_evidence_must_be_substring(mock_llm) -> None:
     state = verify_extraction(state)
     assert state.extraction_status == "needs_human"
     assert any("evidence is not an exact quote" in i for i in state.extraction_issues)
+
+
+def test_optional_field_without_evidence_is_cleared_not_failed(mock_llm) -> None:
+    mock_llm(_payload(PACK01_FIELDS))
+    state = ingest_pdf(DATA_DIR / "supplier-pack-01.pdf")
+    state = extract_quotation(state)
+    assert state.extraction is not None
+    state.extraction.payment_terms_text.value = "some terms"
+    state.extraction.payment_terms_text.evidence = None
+    state = verify_extraction(state)
+    assert state.extraction_status == "ok"
+    assert state.extraction.payment_terms_text.value is None
+    assert any("Cleared unverified optional field" in i for i in state.extraction_issues)
+
+
+def test_missing_late_penalty_false_without_evidence_is_ok(mock_llm) -> None:
+    mock_llm(_payload(PACK01_FIELDS))
+    state = ingest_pdf(DATA_DIR / "supplier-pack-01.pdf")
+    state = extract_quotation(state)
+    assert state.extraction is not None
+    # Simulate pack-06 style: model asserts no penalty clause, no quote.
+    state.extraction.late_penalty_clause_present.value = False
+    state.extraction.late_penalty_clause_present.evidence = None
+    state.extraction.late_penalty_clause_present.confidence = 0.0
+    state.extraction.late_penalty_pct_per_week.value = None
+    state.extraction.late_penalty_pct_per_week.evidence = None
+    state = verify_extraction(state)
+    assert state.extraction_status == "ok"
+    assert state.extraction.late_penalty_clause_present.value is False
 
 
 def test_arithmetic_issues_detects_mismatch(mock_llm) -> None:

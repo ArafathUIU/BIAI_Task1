@@ -80,6 +80,19 @@ def _item(state: GraphState) -> str:
     return str(state.extraction.item_code.value)
 
 
+def _primary_reason(state: GraphState) -> str:
+    """Show the decision reason; only surface extract errors when extract failed."""
+    if state.extraction_status != "ok":
+        for issue in state.extraction_issues:
+            text = issue.strip()
+            if not text or text.startswith(("Cleared unverified", "Note:", "Low confidence")):
+                continue
+            return text if len(text) <= 160 else text[:157] + "..."
+    if state.reasons:
+        return state.reasons[0]
+    return ""
+
+
 def _results_rows(states: list[GraphState]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for s in states:
@@ -91,7 +104,7 @@ def _results_rows(states: list[GraphState]) -> list[dict[str, str]]:
                 "Qty %": "" if s.qty_diff_pct is None else f"{s.qty_diff_pct:+.1f}",
                 "Price %": "" if s.price_diff_pct is None else f"{s.price_diff_pct:+.1f}",
                 "Decision": s.decision or "",
-                "Primary reason": s.reasons[0] if s.reasons else "",
+                "Primary reason": _primary_reason(s),
             }
         )
     return rows

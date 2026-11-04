@@ -66,6 +66,8 @@ def get_client_and_model() -> tuple[OpenAI, str]:
 
 def call_llm(messages: list[dict[str, str]], *, client: OpenAI | None = None, model: str | None = None) -> str:
     """Call the chat completions endpoint. Tries JSON mode, falls back if unsupported."""
+    import time
+
     if client is None or model is None:
         client, model = get_client_and_model()
     assert client is not None and model is not None
@@ -81,15 +83,33 @@ def call_llm(messages: list[dict[str, str]], *, client: OpenAI | None = None, mo
         {},
     ]
     last_exc: Exception | None = None
-    for extra in variants:
-        try:
-            response = client.chat.completions.create(**base_kwargs, **extra)
-            content = response.choices[0].message.content
-            if not content:
-                raise RuntimeError("LLM returned an empty response.")
-            return content
-        except Exception as exc:  # noqa: BLE001 - provider capability varies
-            last_exc = exc
+    for attempt in range(3):
+        for extra in variants:
+            try:
+                response = client.chat.completions.create(**base_kwargs, **extra)
+                content = response.choices[0].message.content
+                if not content:
+                    raise RuntimeError("LLM returned an empty response.")
+                return content
+            except Exception as exc:  # noqa: BLE001 - provider capability varies
+                last_exc = exc
+                message = str(exc).lower()
+                # Capability mismatch (json_object/seed): try next variant.
+                if "response_format" in message or "seed" in message or "json_object" in message:
+                    continue
+                # Rate limit: brief backoff then retry the whole call.
+                if "429" in message or "rate limit" in message:
+                    break
+                # Other hard errors: don't spin on variants forever.
+                break
+        if (
+            last_exc is not None
+            and attempt < 2
+            and ("429" in str(last_exc) or "rate limit" in str(last_exc).lower())
+        ):
+            time.sleep(2 * (attempt + 1))
+            continue
+        break
     assert last_exc is not None
     raise last_exc
 
