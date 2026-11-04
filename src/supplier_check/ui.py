@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
 
-try:
-    from .graph import build_graph
-    from .schemas import GraphState
-    from .store import write_audit
-except ImportError:  # pragma: no cover - streamlit runs this file as a script
-    from supplier_check.graph import build_graph
-    from supplier_check.schemas import GraphState
-    from supplier_check.store import write_audit
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from supplier_check.graph import build_graph
+from supplier_check.schemas import GraphState
+from supplier_check.store import write_audit
 
 
 def _run_batch(input_dir: Path) -> tuple[Path, list[GraphState]]:
