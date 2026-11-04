@@ -33,9 +33,15 @@ If `uv run pytest` is blocked by OS application control, use `uv run python -m p
 
 ## Run the app (Phase 7)
 
+From the project root:
+
 ```bash
 uv run streamlit run src/supplier_check/ui.py
 ```
+
+The UI is **pandas-free** (`st.table` / `st.dataframe` are not used). On some
+Windows machines Application Control blocks pandas DLLs; this app stays runnable
+without pandas. Relative paths like `data` resolve from the project root.
 
 ## Run the pipeline (Phase 6)
 
