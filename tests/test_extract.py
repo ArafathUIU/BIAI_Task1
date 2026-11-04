@@ -49,13 +49,19 @@ def test_build_messages_includes_document_text() -> None:
 def test_extract_quotation_node_with_mocked_llm(monkeypatch) -> None:
     state = ingest_pdf(DATA_DIR / "supplier-pack-01.pdf")
     payload = _valid_payload()
+    payload["item_code"] = {"value": "A", "evidence": "A", "confidence": 0.9}
+    payload["quantity"] = {"value": 12000, "evidence": "12,000", "confidence": 0.9}
+    payload["unit_price"] = {"value": 472.0, "evidence": "472.00", "confidence": 0.9}
+    payload["delivery_days"] = {"value": 24, "evidence": "24 days", "confidence": 0.9}
     monkeypatch.setattr(
         "supplier_check.extract.call_llm",
         lambda messages, client=None, model=None: json.dumps(payload),
     )
     result = extract_quotation(state)
-    assert result.extraction_status == "ok"
+    # Extract never finalises status; verify owns ok vs needs_human.
     assert result.extraction is not None
+    assert result.extraction_status == "needs_human"
+    assert result.extraction.item_code.value == "A"
 
 
 def test_extract_quotation_node_llm_failure(monkeypatch) -> None:
@@ -117,4 +123,61 @@ def test_get_client_uses_openai_when_only_openai(monkeypatch) -> None:
     assert model == "gpt-4o-mini"
     assert client.kwargs["api_key"] == "okey"
     assert "base_url" not in client.kwargs
+
+
+def test_recover_totals_does_not_invent_total_when_vat_present() -> None:
+    from supplier_check.extract import _recover_totals
+    from supplier_check.schemas import FieldExtraction, QuotationExtraction
+
+    null = FieldExtraction()
+    payload = {name: null.model_copy() for name in QuotationExtraction.model_fields}
+    payload["line_amount"] = FieldExtraction(value=100.0, evidence="100", confidence=0.9)
+    payload["vat_rate"] = FieldExtraction(value=15.0, evidence="15%", confidence=0.9)
+    payload["vat_amount"] = FieldExtraction(value=15.0, evidence="15", confidence=0.9)
+    extraction = QuotationExtraction.model_validate(
+        {k: v.model_dump() for k, v in payload.items()}
+    )
+    recovered = _recover_totals(extraction)
+    assert recovered.subtotal.value == 100.0
+    assert recovered.total.value is None
+
+
+def test_recover_totals_copies_total_when_vat_absent() -> None:
+    from supplier_check.extract import _recover_totals
+    from supplier_check.schemas import FieldExtraction, QuotationExtraction
+
+    null = FieldExtraction()
+    payload = {name: null.model_copy() for name in QuotationExtraction.model_fields}
+    payload["line_amount"] = FieldExtraction(value=282000.0, evidence="282,000.00", confidence=0.9)
+    extraction = QuotationExtraction.model_validate(
+        {k: v.model_dump() for k, v in payload.items()}
+    )
+    recovered = _recover_totals(extraction)
+    assert recovered.subtotal.value == 282000.0
+    assert recovered.total.value == 282000.0
+
+
+def test_extract_repair_retry_sends_validation_feedback(monkeypatch) -> None:
+    state = ingest_pdf(DATA_DIR / "supplier-pack-01.pdf")
+    bad = _valid_payload()
+    good = _valid_payload()
+    good["item_code"] = {"value": "A", "evidence": "A", "confidence": 0.9}
+    good["quantity"] = {"value": 12000, "evidence": "12,000", "confidence": 0.9}
+    good["unit_price"] = {"value": 472.0, "evidence": "472.00", "confidence": 0.9}
+    good["delivery_days"] = {"value": 24, "evidence": "24 days", "confidence": 0.9}
+
+    calls: list[list] = []
+
+    def fake_llm(messages, client=None, model=None):
+        calls.append(messages)
+        if len(calls) == 1:
+            return json.dumps(bad)
+        return json.dumps(good)
+
+    monkeypatch.setattr("supplier_check.extract.call_llm", fake_llm)
+    result = extract_quotation(state)
+    assert result.extraction is not None
+    assert result.extraction.item_code.value == "A"
+    assert len(calls) == 2
+    assert "failed checks" in calls[1][-1]["content"].lower()
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .config import CONFIDENCE_THRESHOLD
 from .schemas import GraphState, QuotationExtraction
 
 REQUIRED_FIELDS = (
@@ -130,7 +131,7 @@ def verify_extraction(state: GraphState) -> GraphState:
     # 4. Weak secondary signal: low confidence (recorded, does not fail on its own).
     for name in QuotationExtraction.model_fields:
         field = getattr(extraction, name)
-        if field.value is not None and field.confidence < 0.80:
+        if field.value is not None and field.confidence < CONFIDENCE_THRESHOLD:
             issues.append(
                 f"Low confidence ({field.confidence:.2f}) for field '{name}'."
             )

@@ -125,14 +125,25 @@ def parse_extraction(payload: str | dict[str, Any]) -> tuple[QuotationExtraction
 
 
 def _recover_totals(extraction: QuotationExtraction) -> QuotationExtraction:
-    """Fill missing subtotal/total from line_amount when the document omits labels."""
+    """Fill missing totals only when it does not invent VAT-exclusive figures.
+
+    - ``subtotal`` may copy ``line_amount`` (same commercial line).
+    - ``total`` may copy ``line_amount`` only when VAT is absent (null rate and
+      amount), i.e. VAT-inclusive / all-in quotes. Never set total = line_amount
+      when a separate VAT line is expected.
+    """
     if extraction.subtotal.value is None and extraction.line_amount.value is not None:
         extraction.subtotal = FieldExtraction(
             value=extraction.line_amount.value,
             evidence=extraction.line_amount.evidence,
             confidence=0.7,
         )
-    if extraction.total.value is None and extraction.line_amount.value is not None:
+    vat_absent = extraction.vat_rate.value is None and extraction.vat_amount.value is None
+    if (
+        extraction.total.value is None
+        and extraction.line_amount.value is not None
+        and vat_absent
+    ):
         extraction.total = FieldExtraction(
             value=extraction.line_amount.value,
             evidence=extraction.line_amount.evidence,
@@ -156,8 +167,15 @@ def _recover_item_code(extraction: QuotationExtraction, raw_text: str) -> Quotat
     return extraction
 
 
+def _missing_required(extraction: QuotationExtraction, required: tuple[str, ...]) -> list[str]:
+    return [name for name in required if getattr(extraction, name).value is None]
+
+
 def extract_quotation(state: GraphState) -> GraphState:
-    """LangGraph node: extract structured fields from the document text."""
+    """LangGraph node: extract structured fields from the document text.
+
+    Does not mark ``extraction_status='ok'``. Verification owns that gate.
+    """
     if not state.ingestion_ok or not state.raw_text.strip():
         state.extraction_status = "needs_human"
         state.extraction_issues.append("Ingestion failed; no text available for extraction.")
@@ -168,18 +186,36 @@ def extract_quotation(state: GraphState) -> GraphState:
     extraction: QuotationExtraction | None = None
     issues: list[str] = []
     last_exc: Exception | None = None
+    last_content: str | None = None
 
-    for _ in range(3):
+    for attempt in range(3):
         try:
             content = call_llm(messages)
+            last_content = content
         except Exception as exc:  # noqa: BLE001 - any failure must become needs_human, never a guess
             last_exc = exc
             continue
         extraction, issues = parse_extraction(content)
-        if extraction is not None and not any(
-            getattr(extraction, field).value is None for field in required
-        ):
+        missing = _missing_required(extraction, required) if extraction is not None else required
+        if extraction is not None and not missing:
             break
+        # Repair retry: feed the validation problem back to the model once/twice.
+        if attempt < 2:
+            problem = "; ".join(issues) if issues else (
+                f"Missing required fields: {', '.join(missing)}"
+            )
+            messages = [
+                *messages,
+                {"role": "assistant", "content": content},
+                {
+                    "role": "user",
+                    "content": (
+                        "Your previous JSON failed checks: "
+                        f"{problem}. Return corrected JSON only, with exact "
+                        "evidence substrings from the document."
+                    ),
+                },
+            ]
 
     if last_exc is not None and extraction is None:
         state.extraction_status = "needs_human"
@@ -187,7 +223,9 @@ def extract_quotation(state: GraphState) -> GraphState:
         return state
     if extraction is None:
         state.extraction_status = "needs_human"
-        state.extraction_issues.extend(issues)
+        state.extraction_issues.extend(issues or ["Extraction produced no usable JSON."])
+        if last_content is None:
+            state.extraction_issues.append("LLM returned no content.")
         return state
 
     # Deterministic recovery for fields the model occasionally omits.
@@ -195,5 +233,11 @@ def extract_quotation(state: GraphState) -> GraphState:
     extraction = _recover_item_code(extraction, state.raw_text)
 
     state.extraction = extraction
-    state.extraction_status = "ok"
+    # Verify node decides ok vs needs_human; extraction alone is never final.
+    state.extraction_status = "needs_human"
+    missing = _missing_required(extraction, required)
+    if missing:
+        state.extraction_issues.append(
+            f"Missing required fields after extraction: {', '.join(missing)}"
+        )
     return state

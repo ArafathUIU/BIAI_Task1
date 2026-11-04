@@ -27,6 +27,9 @@ markdown, commentary, or any text outside the JSON.
     (e.g. "30 to 90 days") is given, output the original phrase as a string.
 12. `vat_rate`: numeric percent (expect 15). If VAT is included in the unit price
     and not shown separately, set `vat_rate` to null and `vat_amount` to null.
+13. `advance_payment_pct`: numeric percent. If the document says no advance is
+    required (e.g. "No advance payment required"), set `value` to `0` with that
+    sentence as evidence — do not leave it null.
 
 ## Schema
 
