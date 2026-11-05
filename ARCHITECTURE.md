@@ -16,16 +16,16 @@ flowchart LR
     classDef gate fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
     classDef store fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 
-    PDF[("Supplier Pack PDF<br/>one item per pack")]
+    PDF[("Supplier Pack PDF")]
     INGEST[Ingest Document]
-    EXTRACT[Extract Quotation<br/>LLM + JSON schema]
-    VERIFY[Verify Extraction<br/>evidence + arithmetic]
-    PR[Load Purchase Request<br/>purchase-request.csv]
+    EXTRACT[Extract Quotation]
+    VERIFY[Verify Extraction]
+    PR[Load Purchase Request]
     COMPARE[Compare Qty / Price]
-    RULES[Apply Company Rules<br/>deterministic Python]
+    RULES[Apply Company Rules]
     DECIDE[Decide / Precedence]
-    AUDIT[JSONL Audit<br/>runs/<timestamp>/]
-    UI[Streamlit UI<br/>results + evidence detail]
+    AUDIT[JSONL Audit]
+    UI[Streamlit UI]
 
     PDF --> INGEST
     INGEST --> EXTRACT
@@ -55,32 +55,32 @@ flowchart TD
     classDef node fill:#fff,stroke:#333,stroke-width:2px
     classDef gate fill:#fffde7,stroke:#fbc02d,stroke-width:2px
 
-    S1[GraphState<br/>raw_text, file_hash]
-    N1[ingest_document<br/>PDF → raw_text + sha256]
-    S2[GraphState<br/>+ raw_text, ingestion_ok]
-    N2[extract_quotation<br/>LLM → QuotationExtraction]
-    S3[GraphState<br/>+ extraction (needs_human)]
-    N3[verify_extraction<br/>evidence + arithmetic + % reconcile]
-    S4[GraphState<br/>+ extraction_status ok/needs_human]
-    N4[apply_pr_comparison<br/>load PR row, qty/price diff %]
-    S5[GraphState<br/>+ pr_row, qty/price diffs]
-    N5[apply_rules<br/>Reject / Needs / Approve]
-    S6[GraphState<br/>+ rule_result]
-    N6[decide<br/>precedence: Reject beats soft uncertainty]
-    S7[GraphState<br/>+ final decision + reasons]
+    S1[GraphState raw_text file_hash]
+    N1[ingest_document]
+    S2[GraphState raw_text ingestion_ok]
+    N2[extract_quotation]
+    S3[GraphState extraction needs_human]
+    N3[verify_extraction]
+    S4[GraphState extraction_status ok needs_human]
+    N4[apply_pr_comparison]
+    S5[GraphState pr_row qty price diffs]
+    N5[apply_rules]
+    S6[GraphState rule_result]
+    N6[decide]
+    S7[GraphState final decision reasons]
 
-    S1 -->|invoke| N1
-    N1 -->|return| S2
-    S2 -->|invoke| N2
-    N2 -->|return| S3
-    S3 -->|invoke| N3
-    N3 -->|return| S4
-    S4 -->|invoke| N4
-    N4 -->|return| S5
-    S5 -->|invoke| N5
-    N5 -->|return| S6
-    S6 -->|invoke| N6
-    N6 -->|return| S7
+    S1 --> N1
+    N1 --> S2
+    S2 --> N2
+    N2 --> S3
+    S3 --> N3
+    N3 --> S4
+    S4 --> N4
+    N4 --> S5
+    S5 --> N5
+    N5 --> S6
+    S6 --> N6
+    N6 --> S7
 
     class S1,S2,S3,S4,S5,S6,S7 state
     class N1,N2,N3,N4,N5,N6 node
@@ -98,22 +98,33 @@ flowchart TD
     classDef approve fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
     classDef gate fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 
-    START[Start: verified extraction + PR match] --> G1{Extraction OK?}
-    G1 -- No --> N1[Needs a person to check<br/>uncertain extraction]
-    G1 -- Yes --> G2{PR row matched?}
-    G2 -- No --> N1
-    G2 -- Yes --> R[apply_rules()]
+    START[Start verified extraction PR match]
+    G1{Extraction OK}
+    G2{PR row matched}
+    N1[Needs person check uncertain extraction]
+    R[apply_rules]
+    G3{Any Reject rule}
+    G4{Any Needs rule}
+    R1[Reject confirmed hard violation]
+    N2[Needs person check soft check]
+    A[Approve all rules pass]
+    END1((Needs human review))
+    END2((Reject))
+    END3((Needs human review))
 
-    R --> G3{Any Reject rule?}
-    G3 -- Yes --> R1[Reject<br/>confirmed hard violation]
-    G3 -- No --> G4{Any Needs rule?}
-    G4 -- Yes --> N2[Needs a person to check<br/>soft check / uncertainty]
-    G4 -- No --> A[Approve<br/>all rules pass]
-
-    G1 -->|extract failed| G2
-    N1 --> END1((Needs human review))
-    R1 --> END2((Reject))
-    N2 --> END3((Needs human review))
+    START --> G1
+    G1 -->|No| N1
+    G1 -->|Yes| G2
+    G2 -->|No| N1
+    G2 -->|Yes| R
+    R --> G3
+    G3 -->|Yes| R1
+    G3 -->|No| G4
+    G4 -->|Yes| N2
+    G4 -->|No| A
+    N1 --> END1
+    R1 --> END2
+    N2 --> END3
     A --> END3
 
     class G1,G2,G3,G4 gate
@@ -125,7 +136,7 @@ flowchart TD
 
 **Precedence rules:**
 1. Ingestion failure / no extraction / no PR match → **Needs a person to check**
-2. Confirmed Reject rule → **Reject** (wins over soft uncertainty — D18)
+2. Confirmed Reject rule → **Reject** (wins over soft extraction uncertainty)
 3. Critical extraction uncertainty → **Needs a person to check**
 4. Otherwise → rule result (Needs or Approve)
 
@@ -135,8 +146,8 @@ flowchart TD
 
 ```mermaid
 flowchart TB
-    classDef py fill:#3776ab,stroke:#000,stroke-width:2px,color:#fff
     classDef data fill:#ff9900,stroke:#000,stroke-width:2px,color:#fff
+    classDef py fill:#3776ab,stroke:#000,stroke-width:2px,color:#fff
     classDef ui fill:#ff4b4b,stroke:#000,stroke-width:2px,color:#fff
     classDef store fill:#2ecc71,stroke:#000,stroke-width:2px,color:#fff
 
@@ -146,28 +157,28 @@ flowchart TB
         PACKS[supplier-pack-01..10.pdf]
     end
 
-    subgraph src_layer[src/supplier_check/]
+    subgraph src_layer[src/supplier_check]
         INGEST[ingest.py]
         EXTRACT[extract.py + prompt]
         VERIFY[verify.py + clauses.py]
         PRMOD[pr.py]
         RULES_ENGINE[rules.py]
         DECIDE[decide.py]
-        GRAPH[graph.py - LangGraph StateGraph]
-        STORE[store.py - JSONL audit]
-        UI[ui.py + control_center/]
+        GRAPH[graph.py LangGraph StateGraph]
+        STORE[store.py JSONL audit]
+        UI[ui.py + control_center]
     end
 
-    subgraph audit_store[Audit / Output]
-        RUNS[runs/<timestamp>/results.jsonl]
-        WORKSPACE[workspace/live/ - Control Center docs]
+    subgraph audit_store[Audit Output]
+        RUNS[runs timestamp results.jsonl]
+        WORKSPACE[workspace live Control Center docs]
     end
 
     subgraph streamlit[Streamlit UI]
-        APP[app.py - navigation]
-        PAGES[pages: Overview / New Verification /<br/>Documents / Evaluation / Detail]
-        COMPS[components: HTML tables, badges, charts]
-        CSS[styles.py - CSS design tokens]
+        APP[app.py navigation]
+        PAGES[pages Overview New Verification Documents Evaluation Detail]
+        COMPS[components HTML tables badges charts]
+        CSS[styles.py CSS design tokens]
     end
 
     PR --> PRMOD
@@ -204,15 +215,26 @@ flowchart TD
     classDef pass fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
     classDef fail fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
 
-    EXT[LLM Extraction<br/>value + evidence + confidence] --> G1{Required fields<br/>present?}
-    G1 -- No --> F1[needs_human<br/>missing required field]
-    G1 -- Yes --> G2{Evidence quote<br/>is substring of raw text?}
-    G2 -- No --> F2[needs_human<br/>field unverified]
-    G2 -- Yes --> G3{% fields match<br/>evidence % tokens?}
-    G3 -- No --> F3[needs_human<br/>UNCERTAIN / normalized]
-    G3 -- Yes --> G4{Arithmetic:<br/>qty×price=line?}
-    G4 -- No --> F4[Note: arithmetic mismatch<br/>recorded for rules]
-    G4 -- Yes --> OK[extraction_status = ok]
+    EXT[LLM Extraction value evidence confidence]
+    G1{Required fields present}
+    G2{Evidence quote is substring of raw text}
+    G3{Percent fields match evidence percent tokens}
+    G4{Arithmetic qty price line subtotal VAT total}
+    F1[needs human missing required field]
+    F2[needs human field unverified]
+    F3[needs human UNCERTAIN normalized]
+    F4[Note arithmetic mismatch recorded for rules]
+    OK[extraction status ok]
+
+    EXT --> G1
+    G1 -->|No| F1
+    G1 -->|Yes| G2
+    G2 -->|No| F2
+    G2 -->|Yes| G3
+    G3 -->|No| F3
+    G3 -->|Yes| G4
+    G4 -->|No| F4
+    G4 -->|Yes| OK
 
     class G1,G2,G3,G4 gate
     class F1,F2,F3,F4 fail
@@ -228,13 +250,22 @@ flowchart TD
     classDef provider fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px
 
-    ENV[.env environment variables] --> G1{LLM_BASE_URL set?}
-    G1 -- Yes --> P1[Ollama / custom endpoint<br/>model = LLM_MODEL]
-    G1 -- No --> G2{GROQ_API_KEY set?}
-    G2 -- Yes --> P2[Groq API<br/>model = GROQ_MODEL]
-    G2 -- No --> G3{OPENAI_API_KEY set?}
-    G3 -- Yes --> P3[OpenAI API<br/>model = LLM_MODEL]
-    G3 -- No --> ERR[RuntimeError<br/>no credentials]
+    ENV[.env environment variables]
+    G1{LLM_BASE_URL set}
+    G2{GROQ_API_KEY set}
+    G3{OPENAI_API_KEY set}
+    P1[Ollama custom endpoint model LLM_MODEL]
+    P2[Groq API model GROQ_MODEL]
+    P3[OpenAI API model LLM_MODEL]
+    ERR[RuntimeError no credentials]
+
+    ENV --> G1
+    G1 -->|Yes| P1
+    G1 -->|No| G2
+    G2 -->|Yes| P2
+    G2 -->|No| G3
+    G3 -->|Yes| P3
+    G3 -->|No| ERR
 
     class P1,P2,P3 provider
     class ERR default
@@ -252,18 +283,40 @@ flowchart LR
     classDef reject fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
     classDef needs fill:#ffe0b2,stroke:#ef6c00,stroke-width:2px
 
-    P01[Pack 01<br/>Padma Textile<br/>Item A] --> A1[Approve]
-    P02[Pack 02<br/>Jamuna Trims<br/>Item B] --> A2[Approve]
-    P03[Pack 03<br/>Karnaphuli Yarn<br/>Item C] --> R1[Reject<br/>price >3%]
-    P04[Pack 04<br/>Surma Packaging<br/>Item D] --> N1[Needs<br/>price ≤3%]
-    P05[Pack 05<br/>Meghna Carton<br/>Item E] --> R2[Reject<br/>advance 40%]
-    P06[Pack 06<br/>Teesta Fabrics<br/>Item A] --> R3[Reject<br/>no penalty clause]
-    P07[Pack 07<br/>Rupsha Zipper<br/>Item B] --> N2[Needs<br/>qty -17.5%]
-    P08[Pack 08<br/>Bhairab Thread<br/>Item C] --> R4[Reject<br/>TIN/BIN missing]
-    P09[Pack 09<br/>Dhaleshwari Poly<br/>Item D] --> N3[Needs<br/>payment + math]
-    P10[Pack 10<br/>Kushiyara Box<br/>Item E] --> R5[Reject<br/>delivery 60d + VAT]
+    P01[Pack 01 Padma Textile Item A]
+    P02[Pack 02 Jamuna Trims Item B]
+    P03[Pack 03 Karnaphuli Yarn Item C]
+    P04[Pack 04 Surma Packaging Item D]
+    P05[Pack 05 Meghna Carton Item E]
+    P06[Pack 06 Teesta Fabrics Item A]
+    P07[Pack 07 Rupsha Zipper Item B]
+    P08[Pack 08 Bhairab Thread Item C]
+    P09[Pack 09 Dhaleshwari Poly Item D]
+    P10[Pack 10 Kushiyara Box Item E]
 
-    Tally[2 Approve · 5 Reject · 3 Needs]
+    A1[Approve]
+    A2[Approve]
+    R1[Reject price over 3 percent]
+    N1[Needs price under 3 percent]
+    R2[Reject advance 40 percent]
+    R3[Reject no penalty clause]
+    N2[Needs quantity minus 17.5 percent]
+    R4[Reject TIN BIN missing]
+    N3[Needs payment plus math mismatch]
+    R5[Reject delivery 60 days VAT]
+
+    P01 --> A1
+    P02 --> A2
+    P03 --> R1
+    P04 --> N1
+    P05 --> R2
+    P06 --> R3
+    P07 --> N2
+    P08 --> R4
+    P09 --> N3
+    P10 --> R5
+
+    Tally[2 Approve 5 Reject 3 Needs]
 
     class A1,A2 approve
     class R1,R2,R3,R4,R5 reject
