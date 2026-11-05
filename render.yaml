@@ -1,0 +1,39 @@
+# Render Blueprint for SupplierGuard (Streamlit)
+# Docs: https://render.com/docs/blueprint-spec
+#
+# After connecting the GitHub repo:
+# 1. Create this Web Service (or apply the blueprint).
+# 2. In the Render dashboard ? Environment, set at least one LLM key:
+#      GROQ_API_KEY  (preferred)  and/or  OPENAI_API_KEY
+#    Optional: GROQ_MODEL, LLM_MODEL, CONFIDENCE_THRESHOLD
+# 3. Never put API keys in this file or in git.
+
+services:
+  - type: web
+    name: supplierguard
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: >-
+      streamlit run src/supplier_check/ui.py
+      --server.port=$PORT
+      --server.address=0.0.0.0
+      --server.headless=true
+      --browser.gatherUsageStats=false
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: LLM_TEMPERATURE
+        value: "0"
+      - key: CONFIDENCE_THRESHOLD
+        value: "0.80"

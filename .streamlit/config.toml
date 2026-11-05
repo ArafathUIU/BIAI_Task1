@@ -3,7 +3,10 @@ gatherUsageStats = false
 
 [server]
 headless = true
-port = 8510
+# Do not hardcode port — local CLI uses --server.port 8510;
+# Render injects $PORT and the start command binds to it.
+enableCORS = false
+enableXsrfProtection = true
 
 [theme]
 primaryColor = "#0F6B7F"

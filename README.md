@@ -56,7 +56,9 @@ BIAI_Task2/
 ├── agent.md                  # Cursor agent conventions and checklist
 ├── pyproject.toml            # Project config, dependencies, pytest/ruff
 ├── .env.example              # Environment template (never commit .env)
-├── .streamlit/config.toml    # Streamlit server settings (port 8510)
+├── .streamlit/config.toml    # Streamlit theme + server (port via CLI / $PORT)
+├── render.yaml               # Render Web Service blueprint
+├── requirements.txt          # Pip lock for Render / CI
 ├── data/                     # Sample files (read-only)
 │   ├── purchase-request.csv
 │   ├── company-rules.md
@@ -186,17 +188,48 @@ audit record per document under `runs/<timestamp>/results.jsonl`.
 ### Step 6: Launch the Streamlit demo UI
 
 ```bash
-uv run streamlit run src/supplier_check/ui.py
+uv run streamlit run src/supplier_check/ui.py --server.port 8510
 ```
 
-Open `http://localhost:8510` (port set in `.streamlit/config.toml`). The UI lets
-you:
+Open `http://localhost:8510`. The UI lets you:
 
 - Upload and process one or many supplier PDFs (New Verification)
 - View KPIs and decision distribution (Overview)
 - Browse All / Approved / Rejected / Needs Human Review documents
 - Open a document detail with extraction fields, evidence quotes, and rule hits
 - Run the golden-label Evaluation against the 10 sample packs
+
+---
+
+## Deploy on Render
+
+SupplierGuard is set up for a Render **Web Service** (Streamlit).
+
+### Files used
+
+| File | Role |
+|---|---|
+| `render.yaml` | Blueprint: build/start commands + env var placeholders |
+| `requirements.txt` | Locked runtime deps (`uv export`); includes `-e .` for the package |
+
+### Steps
+
+1. Push this repo to GitHub (`.env` is gitignored — do **not** commit API keys).
+2. In [Render](https://dashboard.render.com): **New → Blueprint** (uses `render.yaml`), or **New → Web Service** and point at the repo.
+3. If creating manually:
+   - **Build:** `pip install -r requirements.txt`
+   - **Start:** `streamlit run src/supplier_check/ui.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --browser.gatherUsageStats=false`
+4. Under **Environment**, set at least one provider key (same precedence as local):
+   - `GROQ_API_KEY` (recommended for the demo), and optionally `GROQ_MODEL`
+   - or `OPENAI_API_KEY` + `LLM_MODEL`
+5. Deploy. Open the Render URL (e.g. `https://supplierguard.onrender.com`).
+
+### Notes
+
+- Free-tier services **spin down** after idle time; the first request can take ~30–60s.
+- Processing all 10 packs calls the LLM many times — keep an eye on Groq/OpenAI rate limits.
+- Live uploads persist under `workspace/` on the instance disk (ephemeral on free tier; cleared on redeploy).
+- Rotate any API key that was ever committed or pasted into chat before going public.
 
 ---
 
