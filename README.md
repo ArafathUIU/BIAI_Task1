@@ -199,3 +199,35 @@ you:
 - Run the golden-label Evaluation against the 10 sample packs
 
 ---
+
+## Scoring mapping (brief criteria)
+
+| Brief criterion | Weight | How this project addresses it |
+|---|---:|---|
+| Loom presentation | 20% | UI detail view shows exact source quotes supporting each decision; fixed steps are easy to explain |
+| Works on sample files | 25% | 59 tests including golden-label lock targeting 10/10 decisions |
+| Clear, sensible build, handles mistakes | 20% | Fixed LangGraph nodes, conservative "Needs" gate, evidence + arithmetic gates |
+| Hardest part (never guess) | 15% | Evidence substring + arithmetic + percent reconciliation; never auto-approve |
+| Clean runnable code | 10% | `uv sync` one-liner, pytest + ruff green, `.env.example` for OpenAI/Groq/Ollama |
+| Honesty | 10% | Limitations documented below; evaluation report separate from live UI |
+
+### Loom presentation outline
+
+1. **Problem** (30s): What the garment company needs — check supplier quotes against a purchase request and company rules, never guess.
+2. **Approach** (45s): Fixed-step LangGraph pipeline; LLM extracts, Python rules decide; evidence-backed decisions.
+3. **Demo** (2min): Run the batch pipeline on all 10 packs; show the Streamlit UI with the results table and a document detail view highlighting the exact quote behind each decision.
+4. **Why these choices** (45s): Extraction-only LLM + deterministic rules = reproducible, auditable, no hallucinated decisions.
+5. **Limitations** (30s): Text-based PDFs only; no OCR; small models via Ollama may reduce extraction quality; honest about what the system does not do.
+
+---
+
+## Known limitations
+
+- Text-based PDFs only; scanned/image PDFs are not handled in v1 (OCR is future work).
+- Bangla text is not supported (not needed for Task 1).
+- Payment-term parsing is heuristic; complex multi-clause terms may need human review.
+- VAT-inclusive quotes are not reverse-engineered into ex-VAT unit prices; Pack 10 rejects on delivery >45 days, with VAT-not-separate as an additional rule hit.
+- Small models via Ollama may reduce extraction quality; OpenAI/Groq recommended for the scored demo.
+- The system does not send emails or update an ERP; it produces a decision + audit record.
+
+---
