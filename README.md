@@ -44,3 +44,64 @@ for every one — targeting 10/10 accuracy on the golden dataset.
 - **Runnable by a reviewer:** One-command setup with `uv`, plus a Streamlit demo UI.
 
 ---
+
+## Project structure
+
+```text
+BIAI_Task2/
+├── README.md                 # This file
+├── ARCHITECTURE.md           # Mermaid workflow + component diagrams
+├── PLAN.md                   # Phase-by-phase implementation plan
+├── Decisions.md              # Recorded architectural decisions (D0-D22)
+├── agent.md                  # Cursor agent conventions and checklist
+├── pyproject.toml            # Project config, dependencies, pytest/ruff
+├── .env.example              # Environment template (never commit .env)
+├── .streamlit/config.toml    # Streamlit server settings (port 8510)
+├── data/                     # Sample files (read-only)
+│   ├── purchase-request.csv
+│   ├── company-rules.md
+│   └── supplier-pack-01.pdf .. supplier-pack-10.pdf
+├── prompts/                  # Versioned LLM prompts
+│   └── extract_quotation.md
+├── src/supplier_check/       # Python package
+│   ├── __init__.py
+│   ├── config.py             # Env-driven configuration
+│   ├── schemas.py            # Pydantic v2 models (GraphState, extraction)
+│   ├── ingest.py             # PDF text extraction (pdfplumber + pypdf)
+│   ├── extract.py            # LLM extraction node (Groq/OpenAI/Ollama)
+│   ├── verify.py             # Evidence + arithmetic + % reconciliation
+│   ├── clauses.py            # Deterministic late-penalty clause scanner
+│   ├── pr.py                 # Purchase-request loading + comparison
+│   ├── rules.py              # Deterministic company rule engine
+│   ├── decide.py             # Decision precedence (Reject beats uncertainty)
+│   ├── graph.py              # LangGraph StateGraph wiring + batch runner
+│   ├── store.py              # JSONL audit writer
+│   └── ui.py                 # Streamlit demo entry point
+├── src/supplier_check/control_center/   # Streamlit Control Center UI
+│   ├── app.py                # Navigation + KPI sidebar
+│   ├── workspace.py          # Live document persistence (JSON files)
+│   ├── processing.py         # Sequential pipeline invocation
+│   ├── session.py            # Session-state helpers
+│   ├── styles.py             # CSS design tokens
+│   ├── components.py         # HTML tables, badges, charts, reason panels
+│   └── pages/                # Overview / New Verification / Documents / Evaluation / Detail
+├── tests/                    # pytest suite (59 tests)
+│   ├── test_golden_labels.py # Locked 10-pack decisions vs expected.json
+│   ├── test_rules.py         # Rule engine unit tests + boundaries
+│   ├── test_verify.py        # Verification gate tests
+│   ├── test_extract.py       # Extraction node + provider selection tests
+│   ├── test_graph.py         # End-to-end graph + batch resilience tests
+│   ├── test_pr_match.py      # Purchase-request loader tests
+│   ├── test_decide.py        # Decision precedence tests
+│   ├── test_clauses.py       # Late-penalty scanner tests
+│   ├── test_percent_reconcile.py   # D21 percent reconciliation tests
+│   ├── test_ui.py            # UI helper tests
+│   ├── test_workspace.py     # Live workspace persistence tests
+│   ├── test_schemas.py       # Pydantic schema tests
+│   └── fixtures/expected.json    # Locked golden labels
+├── runs/                     # JSONL audit output (gitignored)
+├── workspace/                # Control Center live docs (gitignored)
+└── reports/                  # Evaluation report
+```
+
+---
