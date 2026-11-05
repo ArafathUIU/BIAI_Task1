@@ -118,6 +118,9 @@ Key decision: **LLM is used only for extraction + evidence quoting. All decision
 
 ## 6. Architecture
 
+See `ARCHITECTURE.md` for Mermaid workflow, component, decision-precedence,
+verification-gate, provider-resolution, and golden-label diagrams.
+
 ### 6.1 High-level flow
 
 ```text
