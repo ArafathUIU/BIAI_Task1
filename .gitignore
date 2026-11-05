@@ -21,3 +21,6 @@ htmlcov/
 
 # Live UI workspace
 workspace/
+
+# Loom video script (untracked - do not commit or push)
+loom-script/
