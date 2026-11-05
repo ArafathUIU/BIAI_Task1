@@ -4,7 +4,9 @@ from supplier_check.schemas import FieldExtraction, GraphState, QuotationExtract
 def test_field_extraction_defaults() -> None:
     f = FieldExtraction()
     assert f.value is None
-    assert f.confidence == 0.0
+    assert f.confidence is None
+    assert f.status is None
+
 
 
 def test_quotation_extraction_requires_all_fields() -> None:

@@ -19,8 +19,10 @@ def test_decide_uncertain_extraction_is_needs() -> None:
 
 def test_decide_pr_mismatch_is_needs() -> None:
     state = GraphState(doc_id="x", ingestion_ok=True, raw_text="x")
+    state.extraction = _approved_extraction()
     state.extraction_status = "ok"
     state.pr_match_ok = False
+    state.pr_row = None
     state = decide(state)
     assert state.decision == "Needs a person to check"
     assert any("purchase-request" in r for r in state.reasons)
@@ -81,3 +83,37 @@ def test_decide_full_approve_path() -> None:
     state = decide(state)
     assert state.decision == "Approve"
     assert state.human_review_required is False
+
+
+def test_decide_confirmed_reject_wins_over_extract_uncertainty() -> None:
+    """Hard-rule Reject must not be hidden by soft extraction failures."""
+    pr = load_purchase_request(DATA_DIR / "purchase-request.csv")
+    row = pr["E"]
+    extraction = _approved_extraction()
+    # Meghna-style hard violation: 40% advance.
+    extraction.item_code = FieldExtraction(value="E", evidence="E", confidence=1.0, status="FOUND")
+    extraction.quantity = FieldExtraction(value=3000, evidence="3,000", confidence=1.0, status="FOUND")
+    extraction.unit = FieldExtraction(value="piece", evidence="piece", confidence=1.0, status="FOUND")
+    extraction.unit_price = FieldExtraction(value=92.0, evidence="92.00", confidence=1.0, status="FOUND")
+    extraction.advance_payment_pct = FieldExtraction(
+        value=40.0, evidence="40% advance", confidence=1.0, status="FOUND"
+    )
+    extraction.line_amount = FieldExtraction(value=276000.0, evidence="276,000", confidence=1.0, status="FOUND")
+    extraction.subtotal = FieldExtraction(value=276000.0, evidence="276,000", confidence=1.0, status="FOUND")
+    extraction.vat_rate = FieldExtraction(value=15.0, evidence="VAT 15%", confidence=1.0, status="FOUND")
+    extraction.vat_amount = FieldExtraction(value=41400.0, evidence="41,400", confidence=1.0, status="FOUND")
+    extraction.total = FieldExtraction(value=317400.0, evidence="317,400", confidence=1.0, status="FOUND")
+    extraction.late_penalty_clause_present = FieldExtraction(
+        value=True, evidence="Late delivery penalty", confidence=0.92, status="FOUND"
+    )
+
+    state = GraphState(doc_id="supplier-pack-05", ingestion_ok=True, raw_text="x")
+    state.extraction = extraction
+    state.extraction_status = "needs_human"
+    state.extraction_issues = ["Field 'validity_days' has a value but no supporting evidence."]
+    state.pr_row = row
+    state.pr_match_ok = True
+    state.price_over_max_pct = (92.0 - 95.0) / 95.0 * 100
+    state = decide(state)
+    assert state.decision == "Reject"
+    assert any("Advance payment is more than 20%" in r for r in state.reasons)

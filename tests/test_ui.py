@@ -44,8 +44,8 @@ def test_html_table_includes_decision_badge() -> None:
         }
     ]
     html_out = render_html_table(rows, decision_col="Decision")
-    assert "Reject" in html_out
-    assert "#FDECEC" in html_out  # reject badge background
+    assert "Rejected" in html_out
+    assert "sv-badge reject" in html_out
 
 
 def test_decision_badge_and_counts() -> None:
@@ -60,7 +60,8 @@ def test_decision_badge_and_counts() -> None:
         "Reject": 2,
         "Needs a person to check": 1,
     }
-    assert "Approve" in decision_badge_html("Approve")
+    assert "Approved" in decision_badge_html("Approve")
+    assert "Not Processed" in decision_badge_html(None)
 
 
 def test_field_rows_hides_empty_by_default() -> None:

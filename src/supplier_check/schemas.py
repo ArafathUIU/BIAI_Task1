@@ -6,23 +6,34 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+FieldStatus = Literal["FOUND", "NOT_FOUND", "UNCERTAIN"]
+
 
 class FieldExtraction(BaseModel):
-    """One extracted field with its supporting evidence and confidence."""
+    """One extracted field with its supporting evidence and confidence.
+
+    ``status`` distinguishes:
+    - FOUND: value supported by source evidence
+    - NOT_FOUND: relevant content was inspected; information is absent
+    - UNCERTAIN: incomplete / ambiguous / unverified
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     value: Any = None
     evidence: str | None = None
-    confidence: float = 0.0
+    confidence: float | None = None
+    status: FieldStatus | None = None
 
     @field_validator("confidence")
     @classmethod
-    def _clamp_confidence(cls, v: float) -> float:
+    def _clamp_confidence(cls, v: float | None) -> float | None:
+        if v is None:
+            return None
         try:
             v = float(v)
         except (TypeError, ValueError):
-            return 0.0
+            return None
         return max(0.0, min(1.0, v))
 
 
@@ -98,4 +109,3 @@ class GraphState(BaseModel):
     human_decision: str | None = None
     # Resolved provider model id used for extraction (OpenAI / Groq / Ollama).
     llm_model: str | None = None
-

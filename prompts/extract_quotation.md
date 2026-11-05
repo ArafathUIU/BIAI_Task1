@@ -19,7 +19,9 @@ markdown, commentary, or any text outside the JSON.
    Do not confuse it with the description.
 7. `delivery_days`: integer number of days. Convert "N weeks" to N*7. If the
    document says "4 weeks", output 28.
-8. `late_penalty_clause_present`: true only if a late-delivery penalty clause exists.
+8. `late_penalty_clause_present`: true only if a late-delivery penalty clause exists
+   and you can quote it. If you cannot quote it, set value/evidence to null.
+   Do not invent false. A deterministic scanner will re-check this field.
 9. `late_penalty_pct_per_week`: numeric percent per week (e.g. 0.5), or null if
    no clause / not stated.
 10. `tin` / `bin`: the supplier's TIN / BIN strings, or null if missing.

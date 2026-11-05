@@ -67,9 +67,15 @@ def _numbers_add_up(extraction: Any) -> bool:
     return len(arithmetic_issues(extraction)) == 0
 
 
-def _late_penalty_clause_present(extraction: Any) -> bool:
-    v = _field(extraction, "late_penalty_clause_present").value
-    return v is True
+def _late_penalty_state(extraction: Any) -> str:
+    """Return present | absent | uncertain for the late-penalty clause."""
+    field = _field(extraction, "late_penalty_clause_present")
+    status = getattr(field, "status", None)
+    if status == "FOUND" or field.value is True:
+        return "present"
+    if status == "NOT_FOUND" or field.value is False:
+        return "absent"
+    return "uncertain"
 
 
 def apply_rules(extraction: Any, pr_row: dict[str, Any], price_over_max: float | None) -> RuleResult:
@@ -110,7 +116,8 @@ def apply_rules(extraction: Any, pr_row: dict[str, Any], price_over_max: float |
             "reject_advance_over_20pct",
             _ev(extraction, "advance_payment_pct"),
         )
-    if not _late_penalty_clause_present(extraction):
+    late_penalty = _late_penalty_state(extraction)
+    if late_penalty == "absent":
         reject(
             "The contract has no late-delivery penalty clause.",
             "reject_no_late_penalty_clause",
@@ -133,6 +140,12 @@ def apply_rules(extraction: Any, pr_row: dict[str, Any], price_over_max: float |
         )
 
     # --- Needs rules (evaluated even on Reject, so audit can record extra hits) ---
+    if late_penalty == "uncertain":
+        needs(
+            "Late-delivery penalty clause could not be verified from the document.",
+            "needs_late_penalty_uncertain",
+            _ev(extraction, "late_penalty_clause_present"),
+        )
     if price_over_max is not None and 0 < price_over_max <= 3.0:
         needs(
             "Unit price is above the maximum, but by no more than 3%.",

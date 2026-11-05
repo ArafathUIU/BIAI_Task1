@@ -163,20 +163,20 @@ def test_optional_field_without_evidence_is_cleared_not_failed(mock_llm) -> None
     assert any("Cleared unverified optional field" in i for i in state.extraction_issues)
 
 
-def test_missing_late_penalty_false_without_evidence_is_ok(mock_llm) -> None:
+def test_llm_false_penalty_without_evidence_is_overwritten_by_scan(mock_llm) -> None:
     mock_llm(_payload(PACK01_FIELDS))
     state = ingest_pdf(DATA_DIR / "supplier-pack-01.pdf")
     state = extract_quotation(state)
     assert state.extraction is not None
-    # Simulate pack-06 style: model asserts no penalty clause, no quote.
+    # Model guesses false with no evidence; pack-01 text actually has a clause.
     state.extraction.late_penalty_clause_present.value = False
     state.extraction.late_penalty_clause_present.evidence = None
     state.extraction.late_penalty_clause_present.confidence = 0.0
-    state.extraction.late_penalty_pct_per_week.value = None
-    state.extraction.late_penalty_pct_per_week.evidence = None
     state = verify_extraction(state)
     assert state.extraction_status == "ok"
-    assert state.extraction.late_penalty_clause_present.value is False
+    assert state.extraction.late_penalty_clause_present.value is True
+    assert state.extraction.late_penalty_clause_present.status == "FOUND"
+    assert state.extraction.late_penalty_clause_present.evidence
 
 
 def test_arithmetic_issues_detects_mismatch(mock_llm) -> None:
