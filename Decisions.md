@@ -3,7 +3,8 @@
 This file records the **actual decisions** behind `PLAN.md` and `agent.md`, with the
 logic for each. It is written to be read by a reviewer (human or Cursor agent)
 before implementation. If a decision changes, update the relevant row here and in
-`PLAN.md` in the same commit.
+`PLAN.md` in the same commit. See `ARCHITECTURE.md` for Mermaid diagrams of the
+workflow, components, decision precedence, and verification gates.
 
 Order: most important decisions first.
 
@@ -298,6 +299,129 @@ order value per week**. That floor is not listed under Reject or Needs.
 
 ---
 
+## D16. Field status FOUND / NOT_FOUND / UNCERTAIN (narrow scope)
+
+**Context:** LLM often set `value` with empty evidence and `confidence=0.00`
+(the Pydantic default). Callers could not tell “absent after inspection” from
+“model guessed” or “could not read the contract.”
+
+**Decision:** Add optional `status` on `FieldExtraction`:
+- **FOUND** — value supported by source evidence
+- **NOT_FOUND** — relevant content inspected; information is absent
+- **UNCERTAIN** — incomplete / ambiguous / unverified
+
+Apply this rigorously to `late_penalty_clause_present` (and lightly to cleared
+optional fields). Do **not** force status/page-number on every commercial field
+in this round — the sample PDFs are one page and rules do not need address/contact.
+
+**Logic:** Matches “never guess” without a full OCR/page-platform rewrite.
+Confidence defaults to `null` until evidence or a deterministic scan sets it;
+`0.00` is no longer treated as a real score.
+
+---
+
+## D17. Deterministic late-penalty clause scan (Python, not LLM)
+
+**Context:** Pack 06 has no late-delivery penalty clause. The LLM sometimes
+emitted `false` with no quote and confidence 0. An empty extract is not proof of
+absence.
+
+**Decision:** After ingest, `scan_late_penalty_clause(raw_text)` in `clauses.py`
+overwrites the LLM field:
+1. T&C (or substantial body) inspectable + penalty wording → **FOUND / true** +
+   exact quote
+2. T&C inspectable + no penalty wording → **NOT_FOUND / false** + inspected
+   snippet as evidence; confidence mid (e.g. 0.75), never 1.0
+3. Not enough inspectable contract text → **UNCERTAIN / null**
+
+Rules:
+- `absent` (NOT_FOUND/false) → **Reject**
+- `uncertain` → **Needs a person**
+- `present` → no Reject from this rule
+
+**Logic:** Absence is only asserted after inspection. No pack-name hardcoding.
+Preserves pack 06 Reject without inventing evidence.
+
+---
+
+## D18. Confirmed Reject beats soft extraction uncertainty
+
+**Context:** `decide()` previously short-circuited to Needs whenever
+`extraction_status != ok`, hiding confirmed Rejects (e.g. 40% advance) behind
+optional-field evidence noise.
+
+**Decision:** Precedence:
+1. Ingest / no extraction / no PR match → Needs
+2. Run rules on available verified facts; if decision is **Reject** → **Reject**
+3. Else if extraction still uncertain → Needs
+4. Else use rule result (Needs or Approve)
+
+**Logic:** Spec §8 / company rules: a confirmed hard violation must not be
+hidden by another uncertainty. We do **not** weaken evidence rules to inflate
+Approve rates.
+
+---
+
+## D19. Defer OCR / PyMuPDF / page numbers for Task 1 sample set
+
+**Context:** A broader “document intelligence” brief asked for PyMuPDF, Tesseract
+OCR, and page numbers on every field.
+
+**Decision:** Keep `pdfplumber` + `pypdf` for this round. All 10 sample packs are
+text-based single-page PDFs. OCR and page metadata stay Phase 10 / future work.
+
+**Logic:** Protects the 72h cut line and golden-label focus. Empty extract still
+means UNCERTAIN, never NOT_FOUND.
+
+---
+
+## D20. Late-penalty scanner must accept equivalent wording (Pack 02 fix)
+
+**Context:** Pack 02 says *“For late delivery the supplier shall pay 0.75% … per
+week of delay”* (no word “penalty”). D17 patterns used `[^\n.]` windows that
+stopped at the decimal in `0.75%`, and required the literal “penalty”, causing a
+false NOT_FOUND → false Reject.
+
+**Decision:**
+1. Match equivalent contractual consequences (shall/will pay, deduction,
+   liquidated damages, order-value % per week of delay) — not only the word
+   “penalty”.
+2. Use decimal-safe windows (`[^\n]` / explicit `\d+(?:\.\d+)?\s*%`) so rates
+   like 0.75%, 1.25%, 2.0% parse.
+3. Require a real late-delivery consequence; do not FOUND on VAT%, advance%, or
+   late-*payment* interest alone.
+4. FOUND evidence = exact clause line; NOT_FOUND evidence = inspected section
+   marker (T&C header), not an unrelated Payment snippet.
+5. When FOUND, derive `late_penalty_pct_per_week` from that evidence.
+
+**Logic:** Keeps D17’s inspect-before-absent rule and Pack 06 Reject, without
+weakening company thresholds or hardcoding pack names.
+
+---
+
+## D21. Percentage evidence–value reconciliation (Pack 05 fix)
+
+**Context:** Pack 05 LLM returned `advance_payment_pct=0.4` with evidence
+`40% advance…`. Substring evidence checks passed, but `0.4 > 20` is false, so
+rules Approved. The model used a fraction instead of percent points. D20 already
+normalizes `late_penalty_pct_per_week`; advance/VAT had no equivalent check.
+
+**Decision:**
+1. After substring evidence validation, reconcile `advance_payment_pct` and
+   `vat_rate` against `N%` tokens in their evidence (percent points throughout).
+2. Direct match (`40` vs `40%`, `0.4` vs `0.4%`) → FOUND.
+3. Unambiguous fraction (`0.4` vs `40%`, with evidence rate ≥ 1) → normalize to
+   percent points, FOUND, audit `Note: Normalized…`.
+4. Mismatch / no usable `%` / ambiguous multiple `%` without reliable context →
+   UNCERTAIN; clear the value; do not silently trust it.
+5. Do **not** overwrite D20-owned `late_penalty_*` fields.
+6. No pack-name hardcoding; thresholds and decide precedence unchanged.
+
+**Logic:** Keeps company rule `advance > 20` meaningful when the LLM mis-scales
+percents. Prefer Needs/UNCERTAIN over a false Approve from inconsistent numbers.
+
+---
+
 ## Summary table
 
 | # | Decision | Core reason |
@@ -318,6 +442,25 @@ order value per week**. That floor is not listed under Reject or Needs.
 | D13 | Golden labels locked | No test hacking |
 | D14 | Ollama as fallback | Runnable without paid key (see also D3) |
 | D15 | Penalty below 0.5%/week → Needs | Other-notes floor is not a Reject rule |
+| D16 | FOUND/NOT_FOUND/UNCERTAIN status | Absence ≠ failure ≠ guess |
+| D17 | Deterministic late-penalty scan | Pack 06 Reject without LLM invention |
+| D18 | Reject beats soft uncertainty | Hard violations stay visible |
+| D19 | Defer OCR/page platform | Sample PDFs are text; keep scope tight |
+| D20 | Equivalent late-pay wording + decimal-safe % | Fix Pack 02 false Reject |
+| D21 | Percent evidence–value reconcile | Fix Pack 05 false Approve (0.4 vs 40%) |
+| D22 | Control Center UI over existing pipeline | Live single/multi verify + separate Evaluation |
+
+---
+
+## D22. Supplier Verification Control Center (UI)
+
+**Context:** Assignment demo needed real upload UX (1..N PDFs) without forcing the
+10-pack ritual, while keeping Evaluation independent.
+
+**Decision:** Streamlit Control Center wraps the existing LangGraph pipeline.
+Live docs persist under `workspace/live/` (full `GraphState` JSON + PDF).
+Evaluation runs the 10 samples against `expected.json` and never mutates golden
+labels. Processing failures are stored as `failed` with no supplier decision.
 
 ## Reversal triggers
 
