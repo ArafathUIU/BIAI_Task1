@@ -231,3 +231,44 @@ you:
 - The system does not send emails or update an ERP; it produces a decision + audit record.
 
 ---
+
+## One-page note (assignment submission summary)
+
+### What I built
+
+A fixed-step LangGraph pipeline that checks 10 supplier quotation + contract packs
+against a purchase request and company rules. Each pack is processed through:
+ingest → LLM extraction → evidence/arithmetic verification → PR comparison →
+deterministic rule engine → decision precedence → JSONL audit.
+
+### How I tested it
+
+- **59 pytest tests** covering golden labels (all 10 packs), rule engine boundaries,
+  verification gates, extraction parsing, PR matching, decision precedence,
+  late-penalty scanning, percent reconciliation, and UI helpers.
+- **Golden-label lock** in `tests/fixtures/expected.json` — tests assert decisions
+  match the locked ground truth; labels are never edited to make tests pass.
+- **Live end-to-end run** verified Pack 05 correctly rejects (40% advance → Reject)
+  after percent reconciliation normalizes `0.4` → `40`.
+
+### Results
+
+- **2 Approve, 5 Reject, 3 Needs a person to check** — matching the golden labels.
+- **10/10 decision accuracy** on the 10 sample packs.
+- All tests pass; ruff is clean.
+
+### What I would improve
+
+- Add OCR fallback for scanned PDFs (Phase 10).
+- Add SQLite-based review queue with live LangGraph `interrupt()` for human-in-the-loop.
+- Add Dockerfile for one-command deployment.
+- Add LangSmith tracing for prompt debugging.
+
+### Honesty
+
+Text-based PDFs only; no OCR in v1; small models via Ollama may reduce extraction
+quality; VAT-inclusive quotes are not reverse-engineered into ex-VAT prices; the
+system produces decisions + audit records but does not integrate with an ERP.
+
+---
+
