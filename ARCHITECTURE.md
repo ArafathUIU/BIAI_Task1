@@ -199,10 +199,10 @@ flowchart TB
     COMPS --> CSS
     WORKSPACE -.-> RUNS
 
-    class data_layer,data data
-    class src_layer,py
-    class streamlit,ui
-    class audit_store,store
+    class data_layer data
+    class src_layer py
+    class streamlit ui
+    class audit_store store
 ```
 
 ---
