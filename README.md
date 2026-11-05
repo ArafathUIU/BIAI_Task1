@@ -105,3 +105,25 @@ BIAI_Task2/
 ```
 
 ---
+
+## Tech stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Language | Python 3.11+ | Best ecosystem for PDF, LLM, and workflow tooling |
+| Workflow engine | LangGraph `StateGraph` | Named in the brief; fixed nodes/edges; no free-running agent |
+| Schemas | Pydantic v2 | Single contract for extraction, state, and audit; strict validation |
+| LLM access | `openai` SDK adapter | Works with OpenAI, Groq, or Ollama via `LLM_BASE_URL` |
+| Providers | OpenAI / Groq / Ollama | Precedence: `LLM_BASE_URL` → `GROQ_API_KEY` → `OPENAI_API_KEY` |
+| PDF text | `pdfplumber` → `pypdf` fallback | Table-aware extraction with a no-dependency fallback |
+| UI | Streamlit | Fastest credible demo for a non-technical reviewer |
+| Audit | JSONL (`runs/<timestamp>/results.jsonl`) | Zero-setup, human-readable, diffable |
+| Packaging | `uv` + `pyproject.toml` | Reproducible installs; one-command setup |
+| Tests | `pytest` + `ruff` | 59 tests; clean lint |
+
+**Key decision:** The LLM is used **only for extraction + evidence quoting**. All
+approve/reject/needs decisions are made by deterministic Python in `rules.py`.
+This makes results reproducible, auditable, and defensible — and directly satisfies
+the "never guesses" requirement.
+
+---
