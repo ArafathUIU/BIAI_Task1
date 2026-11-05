@@ -133,7 +133,7 @@ the "never guesses" requirement.
 ### Step 1: Clone and enter the project
 
 ```bash
-git clone https://github.com/ArafathUIU/BIAI_Task2.git
+git clone https://github.com/ArafathUIU/BIAI_Task1.git
 cd BIAI_Task2
 ```
 
@@ -199,17 +199,6 @@ you:
 - Run the golden-label Evaluation against the 10 sample packs
 
 ---
-
-## Scoring mapping (brief criteria)
-
-| Brief criterion | Weight | How this project addresses it |
-|---|---:|---|
-| Loom presentation | 20% | UI detail view shows exact source quotes supporting each decision; fixed steps are easy to explain |
-| Works on sample files | 25% | 59 tests including golden-label lock targeting 10/10 decisions |
-| Clear, sensible build, handles mistakes | 20% | Fixed LangGraph nodes, conservative "Needs" gate, evidence + arithmetic gates |
-| Hardest part (never guess) | 15% | Evidence substring + arithmetic + percent reconciliation; never auto-approve |
-| Clean runnable code | 10% | `uv sync` one-liner, pytest + ruff green, `.env.example` for OpenAI/Groq/Ollama |
-| Honesty | 10% | Limitations documented below; evaluation report separate from live UI |
 
 ### Loom presentation outline
 
