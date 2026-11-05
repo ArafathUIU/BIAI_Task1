@@ -127,3 +127,75 @@ This makes results reproducible, auditable, and defensible — and directly sati
 the "never guesses" requirement.
 
 ---
+
+## How to run (step by step)
+
+### Step 1: Clone and enter the project
+
+```bash
+git clone https://github.com/ArafathUIU/BIAI_Task2.git
+cd BIAI_Task2
+```
+
+### Step 2: Install dependencies
+
+```bash
+uv sync
+```
+
+This creates a virtual environment and installs all runtime + dev dependencies.
+
+### Step 3: Configure your LLM provider
+
+Copy the template and fill in **one** provider:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and set one of:
+
+| Provider | Required env var | Example |
+|---|---|---|
+| Groq | `GROQ_API_KEY` | `GROQ_API_KEY=gsk_...` |
+| OpenAI | `OPENAI_API_KEY` | `OPENAI_API_KEY=sk-...` |
+| Ollama / custom | `LLM_BASE_URL` | `LLM_BASE_URL=http://localhost:11434/v1` |
+
+Provider precedence: `LLM_BASE_URL` → `GROQ_API_KEY` → `OPENAI_API_KEY`.
+
+Never commit `.env` — it is gitignored and contains your secret key.
+
+### Step 4: Run the test suite
+
+```bash
+uv run python -m pytest
+uv run ruff check .
+```
+
+Expect all tests green (59 tests) and ruff clean.
+
+### Step 5: Run the batch pipeline on the 10 sample packs
+
+```bash
+uv run python -m supplier_check.graph --input data/ --out runs/
+```
+
+This processes each PDF through the fixed LangGraph pipeline and writes one JSONL
+audit record per document under `runs/<timestamp>/results.jsonl`.
+
+### Step 6: Launch the Streamlit demo UI
+
+```bash
+uv run streamlit run src/supplier_check/ui.py
+```
+
+Open `http://localhost:8510` (port set in `.streamlit/config.toml`). The UI lets
+you:
+
+- Upload and process one or many supplier PDFs (New Verification)
+- View KPIs and decision distribution (Overview)
+- Browse All / Approved / Rejected / Needs Human Review documents
+- Open a document detail with extraction fields, evidence quotes, and rule hits
+- Run the golden-label Evaluation against the 10 sample packs
+
+---
