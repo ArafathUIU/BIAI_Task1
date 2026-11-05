@@ -1,52 +1,46 @@
 # Supplier Document Checker (Task 1)
 
-Fixed-step LangGraph pipeline that checks supplier quotations and terms against a
-purchase request and company rules. Returns **Approve / Reject / Needs a person to
-check** with exact supporting quotes.
+## Problem statement
 
-## Setup
+A garment company (Aamar Garments Ltd) receives supplier quotations and contracts
+as PDF documents. Each pack contains a quotation plus terms and conditions for one
+purchase-request item. The company needs an AI system that:
 
-```bash
-cp .env.example .env
-uv sync
-```
+1. **Reads** each supplier quote and pulls out supplier name, items, quantities,
+   prices, delivery date, payment terms, VAT, TIN/BIN, validity, and penalty clauses.
+2. **Compares** the quote against the company's purchase request and flags wrong
+   quantity or price.
+3. **Checks** the contract against company rules (payment terms, VAT, late-delivery
+   penalty, TIN/BIN, delivery window).
+4. **Decides** per document: **Approve**, **Reject**, or **Needs a person to check**,
+   with the exact reason.
+5. **Never guesses** — when unsure, it stops and asks a person.
 
-Fill **one** provider in `.env` (never commit `.env`; it is gitignored):
+The brief explicitly requires **clear fixed steps** (e.g. LangGraph), not one
+free-running agent.
 
-| Provider | Set these |
-|---|---|
-| OpenAI | `OPENAI_API_KEY` (+ optional `LLM_MODEL`, default `gpt-4o-mini`) |
-| Groq | `GROQ_API_KEY` (+ optional `GROQ_MODEL`, default `llama-3.3-70b-versatile`) |
-| Ollama / custom | `LLM_BASE_URL` (e.g. `http://localhost:11434/v1`) + `LLM_MODEL` |
+---
 
-Precedence if more than one is set: `LLM_BASE_URL` → `GROQ_API_KEY` → `OPENAI_API_KEY`.
+## Goal and approach
 
-## Run tests
+### Goal
 
-```bash
-uv run python -m pytest
-uv run ruff check .
-```
+Build a deterministic, auditable pipeline that checks all 10 sample supplier packs
+and reproduces the correct decision (Approve / Reject / Needs a person to check)
+for every one — targeting 10/10 accuracy on the golden dataset.
 
-If `uv run pytest` is blocked by OS application control, use `uv run python -m pytest`
-(same tests; works around a Windows policy shim issue).
+### Approach
 
-## Run the app (Phase 7)
+- **LLM is extraction-only:** The language model extracts structured fields +
+  evidence quotes from each PDF. It never decides approve/reject.
+- **Decisions are deterministic Python:** A pure rule engine applies every company
+  rule. The same input always produces the same decision (temperature 0, fixed
+  prompts).
+- **Never guess:** Missing fields, unverifiable evidence, or arithmetic mismatches
+  route to "Needs a person to check" instead of a confident wrong answer.
+- **Fixed-step workflow:** Implemented as a LangGraph `StateGraph` with explicit
+  nodes and edges — no tool-calling agent loop.
+- **Evidence-backed:** Every decision carries the exact source text that supports it.
+- **Runnable by a reviewer:** One-command setup with `uv`, plus a Streamlit demo UI.
 
-From the project root:
-
-```bash
-uv run streamlit run src/supplier_check/ui.py
-```
-
-The UI is **pandas-free** (`st.table` / `st.dataframe` are not used). On some
-Windows machines Application Control blocks pandas DLLs; this app stays runnable
-without pandas. Relative paths like `data` resolve from the project root.
-
-## Run the pipeline (Phase 6)
-
-```bash
-uv run python -m supplier_check.graph --input data/ --out runs/
-```
-
-See `PLAN.md`, `Decisions.md`, and `agent.md` for architecture and roadmap.
+---
